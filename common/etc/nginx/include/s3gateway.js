@@ -14,6 +14,8 @@
  *  limitations under the License.
  */
 
+import aws from "./aws_common.js"
+
 _require_env_var('S3_BUCKET_NAME');
 _require_env_var('S3_SERVER');
 _require_env_var('S3_SERVER_PROTO');
@@ -569,7 +571,7 @@ function signatureV4(r, timestamp, bucket, region, server, credentials) {
     const signature = _buildSignatureV4(r, amzDatetime, eightDigitDate, credentials, bucket, region, server);
     const authHeader = 'AWS4-HMAC-SHA256 Credential='
         .concat(credentials.accessKeyId, '/', eightDigitDate, '/', region, '/', SERVICE, '/aws4_request,',
-            'SignedHeaders=', signedHeaders(credentials.sessionToken), ',Signature=', signature);
+            'SignedHeaders=', aws.signedHeaders(credentials.sessionToken), ',Signature=', signature);
 
     _debug_log(r, 'AWS v4 Auth header: [' + authHeader + ']');
 
@@ -734,7 +736,7 @@ function _buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, ses
     canonicalRequest += uri + '\n';
     canonicalRequest += queryParams + '\n';
     canonicalRequest += canonicalHeaders + '\n';
-    canonicalRequest += signedHeaders(sessionToken) + '\n';
+    canonicalRequest += aws.signedHeaders(sessionToken) + '\n';
     canonicalRequest += EMPTY_PAYLOAD_HASH;
 
     return canonicalRequest;

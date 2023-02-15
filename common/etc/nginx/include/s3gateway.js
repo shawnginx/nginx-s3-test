@@ -25,7 +25,6 @@ _require_env_var('AWS_SIGS_VERSION');
 _require_env_var('S3_STYLE');
 
 const mod_hmac = require('crypto');
-const fs = require('fs');
 
 /**
  * Flag indicating debug mode operation. If true, additional information
@@ -40,6 +39,7 @@ const FOUR_O_FOUR_ON_EMPTY_BUCKET = _parseBoolean(process.env['FOUR_O_FOUR_ON_EM
 const S3_STYLE = process.env['S3_STYLE'];
 
 const ADDITIONAL_HEADER_PREFIXES_TO_STRIP = _parseArray(process.env['HEADER_PREFIXES_TO_STRIP']);
+const S3_ROLE_SESSION_NAME = 'nginx-s3-gateway';
 
 /**
  * Default filename for index pages to be read off of the backing object store.
@@ -684,7 +684,7 @@ async function fetchCredentials(r) {
     }
     else if(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']) {
         try {
-            credentials = await _fetchWebIdentityCredentials(r)
+            credentials = await aws.fetchWebIdentityCredentials(S3_ROLE_SESSION_NAME)
         } catch(e) {
             _debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
             r.return(500);
@@ -728,65 +728,6 @@ async function _fetchEcsRoleCredentials(credentialsUri) {
         accessKeyId: creds.AccessKeyId,
         secretAccessKey: creds.SecretAccessKey,
         sessionToken: creds.Token,
-        expiration: creds.Expiration,
-    };
-}
-
-/**
- * Get the credentials by assuming calling AssumeRoleWithWebIdentity with the environment variable
- * values ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and HOSTNAME
- *
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchWebIdentityCredentials(r) {
-    const arn = process.env['AWS_ROLE_ARN'];
-    const name = process.env['HOSTNAME'] || 'nginx-s3-gateway';
-
-    let sts_endpoint = process.env['STS_ENDPOINT'];
-    if (!sts_endpoint) {
-        /* On EKS, the ServiceAccount can be annotated with
-           'eks.amazonaws.com/sts-regional-endpoints' to control
-           the usage of regional endpoints. We are using the same standard
-           environment variable here as the AWS SDK. This is with the exception
-           of replacing the value `legacy` with `global` to match what EKS sets
-           the variable to.
-           See: https://docs.aws.amazon.com/sdkref/latest/guide/feature-sts-regionalized-endpoints.html
-           See: https://docs.aws.amazon.com/eks/latest/userguide/configure-sts-endpoint.html */
-        const sts_regional = process.env['AWS_STS_REGIONAL_ENDPOINTS'] || 'global';
-        if (sts_regional === 'regional') {
-            /* STS regional endpoints can be derived from the region's name.
-               See: https://docs.aws.amazon.com/general/latest/gr/sts.html */
-            const region = process.env['AWS_REGION'];
-            if (region) {
-                sts_endpoint = `https://sts.${region}.amazonaws.com`;
-            } else {
-                throw 'Missing required AWS_REGION env variable';
-            }
-        } else {
-            // This is the default global endpoint
-            sts_endpoint = 'https://sts.amazonaws.com';
-        }
-    }
-
-    const token = fs.readFileSync(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']);
-
-    const params = `Version=2011-06-15&Action=AssumeRoleWithWebIdentity&RoleArn=${arn}&RoleSessionName=${name}&WebIdentityToken=${token}`;
-
-    const response = await ngx.fetch(sts_endpoint + "?" + params, {
-        headers: {
-            "Accept": "application/json"
-        },
-        method: 'GET',
-    });
-
-    const resp = await response.json();
-    const creds = resp.AssumeRoleWithWebIdentityResponse.AssumeRoleWithWebIdentityResult.Credentials;
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.SessionToken,
         expiration: creds.Expiration,
     };
 }

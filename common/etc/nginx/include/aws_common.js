@@ -468,10 +468,31 @@ async function fetchWebIdentityCredentials(roleSessionName) {
     };
 }
 
+/**
+ * Creates a string to sign by concatenating together multiple parameters required
+ * by the signatures algorithm.
+ *
+ * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html | String to Sign}
+ * @param amzDatetime {string} ISO8601 timestamp string to sign request with
+ * @param eightDigitDate {string} date in the form of 'YYYYMMDD'
+ * @param region {string} region associated with server API
+ * @param canonicalRequestHash {string} hex encoded hash of canonical request string
+ * @param service {string} service code (for example, s3, lambda)
+ * @returns {string} a concatenated string of the passed parameters formatted for signatures
+ * @private
+ */
+function buildStringToSign(amzDatetime, eightDigitDate, region, service, canonicalRequestHash) {
+    return 'AWS4-HMAC-SHA256\n' +
+        amzDatetime + '\n' +
+        eightDigitDate + '/' + region + '/' + service + '/aws4_request\n' +
+        canonicalRequestHash;
+}
+
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
     buildSigningKeyHash,
+    buildStringToSign,
     eightDigitDate,
     fetchEC2RoleCredentials,
     fetchWebIdentityCredentials,

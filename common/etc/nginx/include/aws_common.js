@@ -386,7 +386,7 @@ function _writeCredentialsToFile(credentials) {
  * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
  * @private
  */
-async function fetchEC2RoleCredentials() {
+async function _fetchEC2RoleCredentials() {
     const tokenResp = await ngx.fetch(EC2_IMDS_TOKEN_ENDPOINT, {
         headers: {
             'x-aws-ec2-metadata-token-ttl-seconds': '21600',
@@ -429,7 +429,7 @@ async function fetchEC2RoleCredentials() {
  * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
  * @private
  */
-async function fetchWebIdentityCredentials() {
+async function _fetchWebIdentityCredentials() {
     const arn = process.env['AWS_ROLE_ARN'];
     const name = process.env['HOSTNAME'] || DEFAULT_ROLE_SESSION_NAME;
 

@@ -413,7 +413,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
 
     _debug_log(r, 'AWS v4 Auth Canonical Request Hash: [' + canonicalRequestHash + ']');
 
-    const stringToSign = _buildStringToSign(amzDatetime, eightDigitDate, region, canonicalRequestHash);
+    const stringToSign = aws.buildStringToSign(amzDatetime, eightDigitDate, region, SERVICE, canonicalRequestHash);
 
     _debug_log(r, 'AWS v4 Auth Signing String: [' + stringToSign + ']');
 
@@ -460,25 +460,6 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
     _debug_log(r, 'AWS v4 Authorization Header: [' + signature + ']');
 
     return signature;
-}
-
-/**
- * Creates a string to sign by concatenating together multiple parameters required
- * by the signatures algorithm.
- *
- * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html | String to Sign}
- * @param amzDatetime {string} ISO8601 timestamp string to sign request with
- * @param eightDigitDate {string} date in the form of 'YYYYMMDD'
- * @param region {string} region associated with server API
- * @param canonicalRequestHash {string} hex encoded hash of canonical request string
- * @returns {string} a concatenated string of the passed parameters formatted for signatures
- * @private
- */
-function _buildStringToSign(amzDatetime, eightDigitDate, region, canonicalRequestHash) {
-    return 'AWS4-HMAC-SHA256\n' +
-        amzDatetime + '\n' +
-        eightDigitDate + '/' + region + '/s3/aws4_request\n' +
-        canonicalRequestHash;
 }
 
 

@@ -24,6 +24,13 @@ const fs = require('fs');
 const EMPTY_PAYLOAD_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 /**
+ * @type {string}
+ */
+const EC2_IMDS_TOKEN_ENDPOINT = 'http://169.254.169.254/latest/api/token';
+
+const EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/';
+
+/**
  * Constant defining the headers being signed.
  * @type {string}
  */

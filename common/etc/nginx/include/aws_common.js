@@ -75,7 +75,57 @@ function buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, sess
     return canonicalRequest;
 }
 
+/**
+ * Splits the cached values into an array with two elements or returns an
+ * empty array if the input string is invalid. The first element contains
+ * the eight digit date string and the second element contains a JSON string
+ * of the kSigningHash.
+ *
+ * @param cached input string to parse
+ * @returns {string[]|*[]} array containing eight digit date and kSigningHash or empty
+ * @private
+ */
+function splitCachedValues(cached) {
+    const matchedPos = cached.indexOf(':', 0);
+    // Do a sanity check on the position returned, if it isn't sane, return
+    // an empty array and let the caller logic process it.
+    if (matchedPos < 0 || matchedPos + 1 > cached.length) {
+        return []
+    }
+
+    const eightDigitDate = cached.substring(0, matchedPos);
+    const kSigningHash = cached.substring(matchedPos + 1);
+
+    return [eightDigitDate, kSigningHash]
+}
+
+/**
+ * Creates a signing key HMAC. This value is used to sign the request made to
+ * the API.
+ *
+ * @param kSecret {string} secret access key
+ * @param eightDigitDate {string} date in the form of 'YYYYMMDD'
+ * @param service {string} name of service that request is for e.g. s3, iam, etc
+ * @param region {string} region associated with server API
+ * @returns {ArrayBuffer} signing HMAC
+ * @private
+ */
+function buildSigningKeyHash(kSecret, eightDigitDate, service, region) {
+    const kDate = mod_hmac.createHmac('sha256', 'AWS4'.concat(kSecret))
+        .update(eightDigitDate).digest();
+    const kRegion = mod_hmac.createHmac('sha256', kDate)
+        .update(region).digest();
+    const kService = mod_hmac.createHmac('sha256', kRegion)
+        .update(service).digest();
+    const kSigning = mod_hmac.createHmac('sha256', kService)
+        .update('aws4_request').digest();
+
+    return kSigning;
+}
+
 export default {
     buildCanonicalRequest,
-    signedHeaders
+    buildSigningKeyHash,
+    signedHeaders,
+    splitCachedValues
 }

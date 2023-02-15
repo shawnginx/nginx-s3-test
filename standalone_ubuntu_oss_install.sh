@@ -57,7 +57,7 @@ elif curl --output /dev/null --silent --head --fail --connect-timeout 2 "http://
   echo "Running inside an EC2 instance, using IMDS for credentials"
   uses_iam_creds=1
 else
-  required+=("S3_ACCESS_KEY_ID" "S3_SECRET_KEY")
+  required+=("AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY")
   uses_iam_creds=0
 fi
 
@@ -91,7 +91,7 @@ echo "Installing using github '${branch}' branch"
 
 
 echo "S3 Backend Environment"
-echo "Access Key ID: ${S3_ACCESS_KEY_ID}"
+echo "Access Key ID: ${AWS_ACCESS_KEY_ID}"
 echo "Origin: ${S3_SERVER_PROTO}://${S3_BUCKET_NAME}.${S3_SERVER}:${S3_SERVER_PORT}"
 echo "Region: ${S3_REGION}"
 echo "Addressing Style: ${S3_STYLE}"
@@ -188,9 +188,9 @@ fi
 if [ $uses_iam_creds -eq 0 ]; then
   cat >> "/etc/nginx/environment" << EOF
 # AWS Access key
-S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 # AWS Secret access key
-S3_SECRET_KEY=${S3_SECRET_KEY}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 EOF
 fi
 
@@ -288,8 +288,8 @@ EOF
 # to obtain S3 permissions.
 if [ $uses_iam_creds -eq 0 ]; then
   cat >> "/etc/nginx/environment" << EOF
-env S3_ACCESS_KEY_ID;
-env S3_SECRET_KEY;
+env AWS_ACCESS_KEY_ID;
+env AWS_SECRET_ACCESS_KEY;
 EOF
 fi
 

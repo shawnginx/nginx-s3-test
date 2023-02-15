@@ -17,8 +17,8 @@ running as a Container or as a Systemd service.
 | ------------------------------------- | --------- | ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ALLOW_DIRECTORY_LIST`                | Yes       | `true`, `false`              | `false`   | Flag enabling directory listing                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `AWS_SIGS_VERSION`                    | Yes       | 2, 4                         |           | AWS Signatures API version                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `S3_ACCESS_KEY_ID`                    | Yes       |                              |           | Access key                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `S3_SECRET_KEY`                       | Yes       |                              |           | Secret access key                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `AWS_ACCESS_KEY_ID`                    | Yes       |                              |           | Access key                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `AWS_SECRET_ACCESS_KEY`                       | Yes       |                              |           | Secret access key                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `S3_BUCKET_NAME`                      | Yes       |                              |           | Name of S3 bucket to proxy requests to                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `S3_REGION`                           | Yes       |                              |           | Region associated with API                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `S3_SERVER_PORT`                      | Yes       |                              |           | SSL/TLS port to connect to                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -39,7 +39,7 @@ running as a Container or as a Systemd service.
 
 
 If you are using [AWS instance profile credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html),
-you will need to omit the `S3_ACCESS_KEY_ID` and `S3_SECRET_KEY` variables from
+you will need to omit the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` variables from
 the configuration.
 
 When running with Docker, the above environment variables can be set in a file
@@ -210,7 +210,7 @@ docker run --env-file ./settings --publish 80:80 --name nginx-s3-gateway \
 allow you to assign a role to a compute so that other AWS services can trust
 the instance without having to store authentication keys in the compute
 instance. This is useful for the gateway because it allows us to run the
-gateway without storing an unchanging `S3_ACCESS_KEY_ID` and `S3_SECRET_KEY`
+gateway without storing an unchanging `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 in a file on disk or in an easily read environment variable.
 
 Instance profiles work by providing credentials to the instance via the
@@ -224,7 +224,7 @@ Following the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/User
 we can create a IAM role and launch an instance associated with it. On that
 instance, if we run the gateway as a Systemd service there are no additional
 steps. We just run the install script without specifying the
-`S3_ACCESS_KEY_ID` and `S3_SECRET_KEY` environment variables.
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables.
 
 However, if we want to run the gateway as a container instance on that
 EC2 instance, then we will need to run the following command using the AWS
@@ -236,7 +236,7 @@ aws ec2 modify-instance-metadata-options --instance-id <instance id> \
 ```
 
 After that has been run we can start the container normally and omit the
-`S3_ACCESS_KEY_ID` and `S3_SECRET_KEY` environment variables.
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables.
 
 ### Running in ECS with an IAM Policy
 

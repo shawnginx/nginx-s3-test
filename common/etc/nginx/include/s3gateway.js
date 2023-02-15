@@ -581,7 +581,7 @@ const maxValidityOffsetMs = 4.5 * 60 * 1000;
 async function fetchCredentials(r) {
     /* If we are not using an AWS instance profile to set our credentials we
        exit quickly and don't write a credentials file. */
-    if (process.env['S3_ACCESS_KEY_ID'] && process.env['S3_SECRET_KEY']) {
+    if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
         r.return(200);
         return;
     }

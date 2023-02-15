@@ -515,7 +515,7 @@ function filterListResponse(r, data, flags) {
  * @returns {string} HTTP Authorization header value
  */
 function signatureV4(r, timestamp, bucket, region, server, credentials) {
-    const eightDigitDate = _eightDigitDate(timestamp);
+    const eightDigitDate = aws.eightDigitDate(timestamp);
     const amzDatetime = aws.signedDateTime(timestamp, eightDigitDate);
     const signature = _buildSignatureV4(r, amzDatetime, eightDigitDate, credentials, bucket, region, server);
     const authHeader = 'AWS4-HMAC-SHA256 Credential='
@@ -996,7 +996,6 @@ export default {
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
     _encodeURIComponent,
-    _eightDigitDate,
     _buildSignatureV4,
     _escapeURIPath,
     _parseArray,

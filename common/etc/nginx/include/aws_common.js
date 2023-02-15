@@ -140,7 +140,7 @@ function buildSigningKeyHash(kSecret, eightDigitDate, service, region) {
  * @returns {string} ISO 8601 timestamp
  */
 function awsHeaderDate(r) {
-    return signedDateTime(NOW, _eightDigitDate(NOW));
+    return signedDateTime(NOW, eightDigitDate(NOW));
 }
 
 /**
@@ -150,7 +150,7 @@ function awsHeaderDate(r) {
  * @returns {string} a formatted date string based on the input timestamp
  * @private
  */
-function _eightDigitDate(timestamp) {
+function eightDigitDate(timestamp) {
     const year = timestamp.getUTCFullYear();
     const month = timestamp.getUTCMonth() + 1;
     const day = timestamp.getUTCDate();
@@ -211,6 +211,7 @@ export default {
     awsHeaderDate,
     buildCanonicalRequest,
     buildSigningKeyHash,
+    eightDigitDate,
     signedHeaders,
     signedDate,
     signedDateTime,

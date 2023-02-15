@@ -15,6 +15,8 @@
  *  limitations under the License.
  */
 
+const mod_hmac = require('crypto');
+
 /**
  * Constant checksum for an empty HTTP body.
  * @type {string}

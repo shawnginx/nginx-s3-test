@@ -560,9 +560,14 @@ function _require_env_var(envVarName) {
     }
 }
 
+async function fetchCredentials(r) {
+    aws.fetchCredentials(r);
+}
+
 export default {
     s3auth,
     s3uri,
+    fetchCredentials,
     trailslashControl,
     redirectToS3,
     editHeaders,

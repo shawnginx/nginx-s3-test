@@ -38,6 +38,13 @@ const EC2_IMDS_TOKEN_ENDPOINT = 'http://169.254.169.254/latest/api/token';
 const EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/';
 
 /**
+ * Constant base URI to fetch credentials together with the credentials relative URI, see
+ * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html for more details.
+ * @type {string}
+ */
+const ECS_CREDENTIAL_BASE_URI = 'http://169.254.170.2';
+
+/**
  * Constant defining the headers being signed.
  * @type {string}
  */

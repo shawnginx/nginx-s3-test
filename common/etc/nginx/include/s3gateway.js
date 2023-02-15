@@ -61,18 +61,6 @@ const NOW = new Date();
 const SERVICE = 's3';
 
 /**
- * Constant checksum for an empty HTTP body.
- * @type {string}
- */
-const EMPTY_PAYLOAD_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-
-/**
- * Constant defining the headers being signed.
- * @type {string}
- */
-const DEFAULT_SIGNED_HEADERS = 'host;x-amz-content-sha256;x-amz-date';
-
-/**
  * Constant base URI to fetch credentials together with the credentials relative URI, see
  * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html for more details.
  * @type {string}
@@ -539,21 +527,6 @@ function filterListResponse(r, data, flags) {
 }
 
 /**
- * Creates a string containing the headers that need to be signed as part of v4
- * signature authentication.
- *
- * @param sessionToken {string|undefined} AWS session token if present
- * @returns {string} semicolon delimited string of the headers needed for signing
- */
-function signedHeaders(sessionToken) {
-    let headers = DEFAULT_SIGNED_HEADERS;
-    if (sessionToken) {
-        headers += ';x-amz-security-token';
-    }
-    return headers;
-}
-
-/**
  * Create HTTP Authorization header for authenticating with an AWS compatible
  * v4 API.
  *
@@ -609,7 +582,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
         uri = s3uri(r);
     }
 
-    const canonicalRequest = _buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, creds.sessionToken);
+    const canonicalRequest = aws.buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, creds.sessionToken);
 
     _debug_log(r, 'AWS v4 Auth Canonical Request: [' + canonicalRequest + ']');
 
@@ -709,37 +682,6 @@ function _buildStringToSign(amzDatetime, eightDigitDate, region, canonicalReques
         amzDatetime + '\n' +
         eightDigitDate + '/' + region + '/s3/aws4_request\n' +
         canonicalRequestHash;
-}
-
-/**
- * Creates a canonical request that will later be signed
- *
- * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html | Creating a Canonical Request}
- * @param method {string} HTTP method
- * @param uri {string} URI associated with request
- * @param queryParams {string} query parameters associated with request
- * @param host {string} HTTP Host header value
- * @param amzDatetime {string} ISO8601 timestamp string to sign request with
- * @returns {string} string with concatenated request parameters
- * @private
- */
-function _buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, sessionToken) {
-    let canonicalHeaders = 'host:' + host + '\n' +
-        'x-amz-content-sha256:' + EMPTY_PAYLOAD_HASH + '\n' +
-        'x-amz-date:' + amzDatetime + '\n';
-
-    if (sessionToken) {
-        canonicalHeaders += 'x-amz-security-token:' + sessionToken + '\n'
-    }
-
-    let canonicalRequest = method + '\n';
-    canonicalRequest += uri + '\n';
-    canonicalRequest += queryParams + '\n';
-    canonicalRequest += canonicalHeaders + '\n';
-    canonicalRequest += aws.signedHeaders(sessionToken) + '\n';
-    canonicalRequest += EMPTY_PAYLOAD_HASH;
-
-    return canonicalRequest;
 }
 
 /**

@@ -272,7 +272,7 @@ function _readCredentialsFromKeyValStore(r) {
     try {
         return JSON.parse(cached);
     } catch (e) {
-        _debug_log(r, `Error parsing JSON value from r.variables.instance_credential_json: ${e}`);
+        debug_log(r, `Error parsing JSON value from r.variables.instance_credential_json: ${e}`);
         return undefined;
     }
 }
@@ -488,11 +488,25 @@ function buildStringToSign(amzDatetime, eightDigitDate, region, service, canonic
         canonicalRequestHash;
 }
 
+/**
+ * Outputs a log message to the request logger if debug messages are enabled.
+ *
+ * @param r {Request} HTTP request object
+ * @param msg {string} message to log
+ * @private
+ */
+function debug_log(r, msg) {
+    if (DEBUG && "log" in r) {
+        r.log(msg);
+    }
+}
+
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
     buildSigningKeyHash,
     buildStringToSign,
+    debug_log,
     eightDigitDate,
     fetchEC2RoleCredentials,
     fetchWebIdentityCredentials,

@@ -692,7 +692,7 @@ async function fetchCredentials(r) {
         }
     } else {
         try {
-            credentials = await _fetchEC2RoleCredentials();
+            credentials = await aws.fetchEC2RoleCredentials();
         } catch (e) {
             _debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
             r.return(500);
@@ -722,49 +722,6 @@ async function _fetchEcsRoleCredentials(credentialsUri) {
     if (!resp.ok) {
         throw 'Credentials endpoint response was not ok.';
     }
-    const creds = await resp.json();
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.Token,
-        expiration: creds.Expiration,
-    };
-}
-
-/**
- * Get the credentials needed to generate AWS signatures from the EC2
- * metadata endpoint.
- *
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchEC2RoleCredentials() {
-    const tokenResp = await ngx.fetch(EC2_IMDS_TOKEN_ENDPOINT, {
-        headers: {
-            'x-aws-ec2-metadata-token-ttl-seconds': '21600',
-        },
-        method: 'PUT',
-    });
-    const token = await tokenResp.text();
-    let resp = await ngx.fetch(EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT, {
-        headers: {
-            'x-aws-ec2-metadata-token': token,
-        },
-    });
-    /* This _might_ get multiple possible roles in other scenarios, however,
-       EC2 supports attaching one role only.It should therefore be safe to take
-       the whole output, even given IMDS _might_ (?) be able to return multiple
-       roles. */
-    const credName = await resp.text();
-    if (credName === "") {
-        throw 'No credentials available for EC2 instance';
-    }
-    resp = await ngx.fetch(EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT + credName, {
-        headers: {
-            'x-aws-ec2-metadata-token': token,
-        },
-    });
     const creds = await resp.json();
 
     return {

@@ -68,13 +68,6 @@ const SERVICE = 's3';
 const ECS_CREDENTIAL_BASE_URI = 'http://169.254.170.2';
 
 /**
- * @type {string}
- */
-const EC2_IMDS_TOKEN_ENDPOINT = 'http://169.254.169.254/latest/api/token';
-
-const EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/';
-
-/**
  * Transform the headers returned from S3 such that there isn't information
  * leakage about S3 and do other tasks needed for appropriate gateway output.
  * @param r HTTP request

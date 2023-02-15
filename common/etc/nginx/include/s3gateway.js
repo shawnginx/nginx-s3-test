@@ -131,30 +131,6 @@ function _isHeaderToBeStripped(headerName, additionalHeadersToStrip) {
 }
 
 /**
- * Outputs the timestamp used to sign the request, so that it can be added to
- * the 'Date' header and sent by NGINX.
- *
- * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
- * @returns {string} RFC2616 timestamp
- */
-function s3date(r) {
-    return NOW.toUTCString();
-}
-
-/**
- * Outputs the timestamp used to sign the request, so that it can be added to
- * the 'x-amz-date' header and sent by NGINX. The output format is
- * ISO 8601: YYYYMMDD'T'HHMMSS'Z'.
- * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-date-handling.html | Handling dates in Signature Version 4}
- *
- * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
- * @returns {string} ISO 8601 timestamp
- */
-function awsHeaderDate(r) {
-    return _amzDatetime(NOW, _eightDigitDate(NOW));
-}
-
-/**
  * Returns the path to the credentials temporary cache file.
  *
  * @returns {string} path on the file system to credentials cache file
@@ -480,7 +456,7 @@ function signatureV2(r, bucket, credentials) {
         uri = r.variables.uri_path + INDEX_PAGE
     }
     const hmac = mod_hmac.createHmac('sha1', credentials.secretAccessKey);
-    const httpDate = s3date(r);
+    const httpDate = aws_common.signedDate(r);
     const stringToSign = method + '\n\n\n' + httpDate + '\n' + '/' + bucket + uri;
 
     _debug_log(r, 'AWS v2 Auth Signing String: [' + stringToSign + ']');
@@ -540,7 +516,7 @@ function filterListResponse(r, data, flags) {
  */
 function signatureV4(r, timestamp, bucket, region, server, credentials) {
     const eightDigitDate = _eightDigitDate(timestamp);
-    const amzDatetime = _amzDatetime(timestamp, eightDigitDate);
+    const amzDatetime = aws.signedDateTime(timestamp, eightDigitDate);
     const signature = _buildSignatureV4(r, amzDatetime, eightDigitDate, credentials, bucket, region, server);
     const authHeader = 'AWS4-HMAC-SHA256 Credential='
         .concat(credentials.accessKeyId, '/', eightDigitDate, '/', region, '/', SERVICE, '/aws4_request,',
@@ -660,58 +636,6 @@ function _buildStringToSign(amzDatetime, eightDigitDate, region, canonicalReques
         canonicalRequestHash;
 }
 
-/**
- * Formats a timestamp into a date string in the format 'YYYYMMDD'.
- *
- * @param timestamp {Date} timestamp used in signature
- * @returns {string} a formatted date string based on the input timestamp
- * @private
- */
-function _eightDigitDate(timestamp) {
-    const year = timestamp.getUTCFullYear();
-    const month = timestamp.getUTCMonth() + 1;
-    const day = timestamp.getUTCDate();
-
-    return ''.concat(_padWithLeadingZeros(year, 4),
-        _padWithLeadingZeros(month,2),
-        _padWithLeadingZeros(day,2));
-}
-
-/**
- * Creates a string in the ISO601 date format (YYYYMMDD'T'HHMMSS'Z') based on
- * the supplied timestamp and date. The date is not extracted from the timestamp
- * because that operation is already done once during the signing process.
- *
- * @param timestamp {Date} timestamp to extract date from
- * @param eightDigitDate {string} 'YYYYMMDD' format date string that was already extracted from timestamp
- * @returns {string} string in the format of YYYYMMDD'T'HHMMSS'Z'
- * @private
- */
-function _amzDatetime(timestamp, eightDigitDate) {
-    const hours = timestamp.getUTCHours();
-    const minutes = timestamp.getUTCMinutes();
-    const seconds = timestamp.getUTCSeconds();
-
-    return ''.concat(
-        eightDigitDate,
-        'T', _padWithLeadingZeros(hours, 2),
-        _padWithLeadingZeros(minutes, 2),
-        _padWithLeadingZeros(seconds, 2),
-        'Z');
-}
-
-/**
- * Pads the supplied number with leading zeros.
- *
- * @param num {number|string} number to pad
- * @param size number of leading zeros to pad
- * @returns {string} a string with leading zeros
- * @private
- */
-function _padWithLeadingZeros(num, size) {
-    const s = "0" + num;
-    return s.substr(s.length-size);
-}
 
 /**
  * Adds additional encoding to a URI component
@@ -1059,11 +983,9 @@ async function _fetchWebIdentityCredentials(r) {
 }
 
 export default {
-    awsHeaderDate,
     fetchCredentials,
     readCredentials,
     writeCredentials,
-    s3date,
     s3auth,
     s3SecurityToken,
     s3uri,
@@ -1073,10 +995,8 @@ export default {
     filterListResponse,
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
-    _padWithLeadingZeros,
     _encodeURIComponent,
     _eightDigitDate,
-    _amzDatetime,
     _buildSignatureV4,
     _escapeURIPath,
     _parseArray,

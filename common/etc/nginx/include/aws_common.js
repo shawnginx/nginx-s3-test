@@ -28,6 +28,13 @@ const EMPTY_PAYLOAD_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495
 const DEFAULT_SIGNED_HEADERS = 'host;x-amz-content-sha256;x-amz-date';
 
 /**
+ * The current moment as a timestamp. This timestamp will be used across
+ * functions in order for there to be no variations in signatures.
+ * @type {Date}
+ */
+const NOW = new Date();
+
+/**
  * Creates a string containing the headers that need to be signed as part of v4
  * signature authentication.
  *
@@ -123,9 +130,90 @@ function buildSigningKeyHash(kSecret, eightDigitDate, service, region) {
     return kSigning;
 }
 
+/**
+ * Outputs the timestamp used to sign the request, so that it can be added to
+ * the 'x-amz-date' header and sent by NGINX. The output format is
+ * ISO 8601: YYYYMMDD'T'HHMMSS'Z'.
+ * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-date-handling.html | Handling dates in Signature Version 4}
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @returns {string} ISO 8601 timestamp
+ */
+function awsHeaderDate(r) {
+    return signedDateTime(NOW, _eightDigitDate(NOW));
+}
+
+/**
+ * Formats a timestamp into a date string in the format 'YYYYMMDD'.
+ *
+ * @param timestamp {Date} timestamp used in signature
+ * @returns {string} a formatted date string based on the input timestamp
+ * @private
+ */
+function _eightDigitDate(timestamp) {
+    const year = timestamp.getUTCFullYear();
+    const month = timestamp.getUTCMonth() + 1;
+    const day = timestamp.getUTCDate();
+
+    return ''.concat(_padWithLeadingZeros(year, 4),
+        _padWithLeadingZeros(month,2),
+        _padWithLeadingZeros(day,2));
+}
+
+/**
+ * Creates a string in the ISO601 date format (YYYYMMDD'T'HHMMSS'Z') based on
+ * the supplied timestamp and date. The date is not extracted from the timestamp
+ * because that operation is already done once during the signing process.
+ *
+ * @param timestamp {Date} timestamp to extract date from
+ * @param eightDigitDate {string} 'YYYYMMDD' format date string that was already extracted from timestamp
+ * @returns {string} string in the format of YYYYMMDD'T'HHMMSS'Z'
+ * @private
+ */
+function signedDateTime(timestamp, eightDigitDate) {
+    const hours = timestamp.getUTCHours();
+    const minutes = timestamp.getUTCMinutes();
+    const seconds = timestamp.getUTCSeconds();
+
+    return ''.concat(
+        eightDigitDate,
+        'T', _padWithLeadingZeros(hours, 2),
+        _padWithLeadingZeros(minutes, 2),
+        _padWithLeadingZeros(seconds, 2),
+        'Z');
+}
+
+/**
+ * Pads the supplied number with leading zeros.
+ *
+ * @param num {number|string} number to pad
+ * @param size number of leading zeros to pad
+ * @returns {string} a string with leading zeros
+ * @private
+ */
+function _padWithLeadingZeros(num, size) {
+    const s = "0" + num;
+    return s.substr(s.length-size);
+}
+
+/**
+ * Outputs the timestamp used to sign the request, so that it can be added to
+ * the 'Date' header and sent by NGINX.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @returns {string} RFC2616 timestamp
+ */
+function signedDate(r) {
+    return NOW.toUTCString();
+}
+
 export default {
+    awsHeaderDate,
     buildCanonicalRequest,
     buildSigningKeyHash,
     signedHeaders,
-    splitCachedValues
+    signedDate,
+    signedDateTime,
+    splitCachedValues,
+    _padWithLeadingZeros
 }

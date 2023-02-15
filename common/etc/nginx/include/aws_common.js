@@ -22,7 +22,7 @@ const fs = require('fs');
  * about signature generation will be logged.
  * @type {boolean}
  */
-const DEBUG = parseBoolean(process.env['S3_DEBUG']);
+const DEBUG = parseBoolean(process.env['AWS_DEBUG']);
 
 /**
  * Constant checksum for an empty HTTP body.

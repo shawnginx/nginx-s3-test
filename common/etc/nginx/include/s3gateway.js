@@ -38,7 +38,6 @@ const FOUR_O_FOUR_ON_EMPTY_BUCKET = aws.parseBoolean(process.env['FOUR_O_FOUR_ON
 const S3_STYLE = process.env['S3_STYLE'];
 
 const ADDITIONAL_HEADER_PREFIXES_TO_STRIP = _parseArray(process.env['HEADER_PREFIXES_TO_STRIP']);
-const S3_ROLE_SESSION_NAME = 'nginx-s3-gateway';
 
 /**
  * Default filename for index pages to be read off of the backing object store.
@@ -549,128 +548,7 @@ function _require_env_var(envVarName) {
     }
 }
 
-/**
- * Offset to the expiration of credentials, when they should be considered expired and refreshed. The maximum
- * time here can be 5 minutes, the IMDS and ECS credentials endpoint will make sure that each returned set of credentials
- * is valid for at least another 5 minutes.
- *
- * To make sure we always refresh the credentials instead of retrieving the same again, keep credentials until 4:30 minutes
- * before they really expire.
- *
- * @type {number}
- */
-const maxValidityOffsetMs = 4.5 * 60 * 1000;
-
-/**
- * Get the credentials needed to create AWS signatures in order to authenticate
- * to S3. If the gateway is being provided credentials via a instance profile
- * credential as provided over the metadata endpoint, this function will:
- * 1. Try to read the credentials from cache
- * 2. Determine if the credentials are stale
- * 3. If the cached credentials are missing or stale, it gets new credentials
- *    from the metadata endpoint.
- * 4. If new credentials were pulled, it writes the credentials back to the
- *    cache.
- *
- * If the gateway is not using instance profile credentials, then this function
- * quickly exits.
- *
- * @param r {Request} HTTP request object
- * @returns {Promise<void>}
- */
-async function fetchCredentials(r) {
-    /* If we are not using an AWS instance profile to set our credentials we
-       exit quickly and don't write a credentials file. */
-    if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
-        r.return(200);
-        return;
-    }
-
-    let current;
-
-    try {
-        current = aws.readCredentials(r);
-    } catch (e) {
-        aws.debug_log(r, `Could not read credentials: ${e}`);
-        r.return(500);
-        return;
-    }
-
-    if (current) {
-        // AWS returns Unix timestamps in seconds, but in Date constructor we should provide timestamp in milliseconds
-        const exp = new Date(current.expiration * 1000).getTime() - maxValidityOffsetMs;
-        if (NOW.getTime() < exp) {
-            r.return(200);
-            return;
-        }
-    }
-
-    let credentials;
-
-    aws.debug_log(r, 'Cached credentials are expired or not present, requesting new ones');
-
-    if (process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI']) {
-        const uri = ECS_CREDENTIAL_BASE_URI + process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'];
-        try {
-            credentials = await _fetchEcsRoleCredentials(uri);
-        } catch (e) {
-            aws.debug_log(r, 'Could not load ECS task role credentials: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    }
-    else if(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']) {
-        try {
-            credentials = await aws.fetchWebIdentityCredentials(S3_ROLE_SESSION_NAME)
-        } catch(e) {
-            aws.debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    } else {
-        try {
-            credentials = await aws.fetchEC2RoleCredentials();
-        } catch (e) {
-            aws.debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    }
-    try {
-        aws.writeCredentials(r, credentials);
-    } catch (e) {
-        aws.debug_log(r, `Could not write credentials: ${e}`);
-        r.return(500);
-        return;
-    }
-    r.return(200);
-}
-
-/**
- * Get the credentials needed to generate AWS signatures from the ECS
- * (Elastic Container Service) metadata endpoint.
- *
- * @param credentialsUri {string} endpoint to get credentials from
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchEcsRoleCredentials(credentialsUri) {
-    const resp = await ngx.fetch(credentialsUri);
-    if (!resp.ok) {
-        throw 'Credentials endpoint response was not ok.';
-    }
-    const creds = await resp.json();
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.Token,
-        expiration: creds.Expiration,
-    };
-}
-
 export default {
-    fetchCredentials,
     s3auth,
     s3uri,
     trailslashControl,

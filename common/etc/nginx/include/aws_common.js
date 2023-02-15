@@ -18,13 +18,6 @@ const mod_hmac = require('crypto');
 const fs = require('fs');
 
 /**
- * Flag indicating debug mode operation. If true, additional information
- * about signature generation will be logged.
- * @type {boolean}
- */
-const DEBUG = parseBoolean(process.env['AWS_DEBUG']);
-
-/**
  * Constant checksum for an empty HTTP body.
  * @type {string}
  */
@@ -602,29 +595,6 @@ function debug_log(r, msg) {
     }
 }
 
-/**
- * Parses a string to and returns a boolean value based on its value. If the
- * string can't be parsed, this method returns false.
- *
- * @param string {*} value representing a boolean
- * @returns {boolean} boolean value of string
- * @private
- */
-function parseBoolean(string) {
-    switch(string) {
-        case "TRUE":
-        case "true":
-        case "True":
-        case "YES":
-        case "yes":
-        case "Yes":
-        case "1":
-            return true;
-        default:
-            return false;
-    }
-}
-
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
@@ -632,7 +602,6 @@ export default {
     debug_log,
     eightDigitDate,
     fetchCredentials,
-    parseBoolean,
     readCredentials,
     securityToken,
     signedDate,

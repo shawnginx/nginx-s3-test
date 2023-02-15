@@ -42,6 +42,40 @@ function signedHeaders(sessionToken) {
     return headers;
 }
 
+/**
+ * Creates a canonical request that will later be signed
+ *
+ * @see {@link https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html | Creating a Canonical Request}
+ * @param method {string} HTTP method
+ * @param uri {string} URI associated with request
+ * @param queryParams {string} query parameters associated with request
+ * @param host {string} HTTP Host header value
+ * @param amzDatetime {string} ISO8601 timestamp string to sign request with
+ * @returns {string} string with concatenated request parameters
+ * @private
+ */
+function buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, sessionToken) {
+    let canonicalHeaders = 'host:' + host + '\n' +
+        'x-amz-content-sha256:' + EMPTY_PAYLOAD_HASH + '\n' +
+        'x-amz-date:' + amzDatetime + '\n';
+
+    if (sessionToken) {
+        canonicalHeaders += 'x-amz-security-token:' + sessionToken + '\n'
+    }
+
+    let canonicalRequest = method + '\n';
+    canonicalRequest += uri + '\n';
+    if (queryParams) {
+        canonicalRequest += queryParams + '\n';
+    }
+    canonicalRequest += canonicalHeaders + '\n';
+    canonicalRequest += signedHeaders(sessionToken) + '\n';
+    canonicalRequest += EMPTY_PAYLOAD_HASH;
+
+    return canonicalRequest;
+}
+
 export default {
+    buildCanonicalRequest,
     signedHeaders
 }

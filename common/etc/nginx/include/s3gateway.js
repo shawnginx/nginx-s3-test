@@ -167,7 +167,7 @@ function s3BaseUri(r) {
     let basePath;
 
     if (S3_STYLE === 'path') {
-        _debug_log(r, 'Using path style uri : ' + '/' + bucket);
+        aws.debug_log(r, 'Using path style uri : ' + '/' + bucket);
         basePath = '/' + bucket;
     } else {
         basePath = '';
@@ -203,7 +203,7 @@ function s3uri(r) {
         path = _escapeURIPath(basePath + uriPath);
     }
 
-    _debug_log(r, 'S3 Request URI: ' + r.method + ' ' + path);
+    aws.debug_log(r, 'S3 Request URI: ' + r.method + ' ' + path);
     return path;
 }
 
@@ -249,7 +249,7 @@ function _s3DirQueryParams(uriPath, method) {
 function redirectToS3(r) {
     // This is a read-only S3 gateway, so we do not support any other methods
     if (!(r.method === 'GET' || r.method === 'HEAD')) {
-        _debug_log(r, 'Invalid method requested: ' + r.method);
+        aws.debug_log(r, 'Invalid method requested: ' + r.method);
         r.internalRedirect("@error405");
         return;
     }
@@ -304,7 +304,7 @@ function signatureV2(r, bucket, credentials) {
     const httpDate = aws_common.signedDate(r);
     const stringToSign = method + '\n\n\n' + httpDate + '\n' + '/' + bucket + uri;
 
-    _debug_log(r, 'AWS v2 Auth Signing String: [' + stringToSign + ']');
+    aws.debug_log(r, 'AWS v2 Auth Signing String: [' + stringToSign + ']');
 
     const s3signature = hmac.update(stringToSign).digest('base64');
 
@@ -367,7 +367,7 @@ function signatureV4(r, timestamp, bucket, region, server, credentials) {
         .concat(credentials.accessKeyId, '/', eightDigitDate, '/', region, '/', SERVICE, '/aws4_request,',
             'SignedHeaders=', aws.signedHeaders(credentials.sessionToken), ',Signature=', signature);
 
-    _debug_log(r, 'AWS v4 Auth header: [' + authHeader + ']');
+    aws.debug_log(r, 'AWS v4 Auth header: [' + authHeader + ']');
 
     return authHeader;
 }
@@ -405,17 +405,17 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
 
     const canonicalRequest = aws.buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, creds.sessionToken);
 
-    _debug_log(r, 'AWS v4 Auth Canonical Request: [' + canonicalRequest + ']');
+    aws.debug_log(r, 'AWS v4 Auth Canonical Request: [' + canonicalRequest + ']');
 
     const canonicalRequestHash = mod_hmac.createHash('sha256')
         .update(canonicalRequest)
         .digest('hex');
 
-    _debug_log(r, 'AWS v4 Auth Canonical Request Hash: [' + canonicalRequestHash + ']');
+    aws.debug_log(r, 'AWS v4 Auth Canonical Request Hash: [' + canonicalRequestHash + ']');
 
     const stringToSign = aws.buildStringToSign(amzDatetime, eightDigitDate, region, SERVICE, canonicalRequestHash);
 
-    _debug_log(r, 'AWS v4 Auth Signing String: [' + stringToSign + ']');
+    aws.debug_log(r, 'AWS v4 Auth Signing String: [' + stringToSign + ']');
 
     let kSigningHash;
 
@@ -434,7 +434,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
 
         // If true, use cached value
         if (cacheIsValid) {
-            _debug_log(r, 'AWS v4 Using cached Signing Key Hash');
+            aws.debug_log(r, 'AWS v4 Using cached Signing Key Hash');
             /* We are forced to JSON encode the string returned from the HMAC
              * operation because it is in a very specific format that include
              * binary data and in order to preserve that data when persisting
@@ -444,7 +444,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
         // Otherwise, generate a new signing key hash and store it in the cache
         } else {
             kSigningHash = aws.buildSigningKeyHash(creds.secretAccessKey, eightDigitDate, SERVICE, region);
-            _debug_log(r, 'Writing key: ' + eightDigitDate + ':' + kSigningHash.toString('hex'));
+            aws.debug_log(r, 'Writing key: ' + eightDigitDate + ':' + kSigningHash.toString('hex'));
             r.variables.signing_key_hash = eightDigitDate + ':' + JSON.stringify(kSigningHash);
         }
     // Otherwise, don't use caching at all (like when we are using NGINX OSS)
@@ -452,12 +452,12 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
         kSigningHash = aws.buildSigningKeyHash(creds.secretAccessKey, eightDigitDate, SERVICE, region);
     }
 
-    _debug_log(r, 'AWS v4 Signing Key Hash: [' + kSigningHash.toString('hex') + ']');
+    aws.debug_log(r, 'AWS v4 Signing Key Hash: [' + kSigningHash.toString('hex') + ']');
 
     const signature = mod_hmac.createHmac('sha256', kSigningHash)
         .update(stringToSign).digest('hex');
 
-    _debug_log(r, 'AWS v4 Authorization Header: [' + signature + ']');
+    aws.debug_log(r, 'AWS v4 Authorization Header: [' + signature + ']');
 
     return signature;
 }
@@ -560,19 +560,6 @@ function _parseArray(string) {
 }
 
 /**
- * Outputs a log message to the request logger if debug messages are enabled.
- *
- * @param r {Request} HTTP request object
- * @param msg {string} message to log
- * @private
- */
-function _debug_log(r, msg) {
-    if (DEBUG && "log" in r) {
-        r.log(msg);
-    }
-}
-
-/**
  * Checks to see if the given environment variable is present. If not, an error
  * is thrown.
  * @param envVarName {string} environment variable to check for
@@ -628,7 +615,7 @@ async function fetchCredentials(r) {
     try {
         current = aws.readCredentials(r);
     } catch (e) {
-        _debug_log(r, `Could not read credentials: ${e}`);
+        aws.debug_log(r, `Could not read credentials: ${e}`);
         r.return(500);
         return;
     }
@@ -644,14 +631,14 @@ async function fetchCredentials(r) {
 
     let credentials;
 
-    _debug_log(r, 'Cached credentials are expired or not present, requesting new ones');
+    aws.debug_log(r, 'Cached credentials are expired or not present, requesting new ones');
 
     if (process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI']) {
         const uri = ECS_CREDENTIAL_BASE_URI + process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'];
         try {
             credentials = await _fetchEcsRoleCredentials(uri);
         } catch (e) {
-            _debug_log(r, 'Could not load ECS task role credentials: ' + JSON.stringify(e));
+            aws.debug_log(r, 'Could not load ECS task role credentials: ' + JSON.stringify(e));
             r.return(500);
             return;
         }
@@ -660,7 +647,7 @@ async function fetchCredentials(r) {
         try {
             credentials = await aws.fetchWebIdentityCredentials(S3_ROLE_SESSION_NAME)
         } catch(e) {
-            _debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
+            aws.debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
             r.return(500);
             return;
         }
@@ -668,7 +655,7 @@ async function fetchCredentials(r) {
         try {
             credentials = await aws.fetchEC2RoleCredentials();
         } catch (e) {
-            _debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
+            aws.debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
             r.return(500);
             return;
         }
@@ -676,7 +663,7 @@ async function fetchCredentials(r) {
     try {
         aws.writeCredentials(r, credentials);
     } catch (e) {
-        _debug_log(r, `Could not write credentials: ${e}`);
+        aws.debug_log(r, `Could not write credentials: ${e}`);
         r.return(500);
         return;
     }

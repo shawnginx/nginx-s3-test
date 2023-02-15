@@ -37,6 +37,21 @@ const EMPTY_PAYLOAD_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495
 const DEFAULT_SIGNED_HEADERS = 'host;x-amz-content-sha256;x-amz-date';
 
 /**
+ * Constant base URI to fetch credentials together with the credentials relative URI, see
+ * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html for more details.
+ * @type {string}
+ */
+const ECS_CREDENTIAL_BASE_URI = 'http://169.254.170.2';
+
+/**
+ * @type {string}
+ */
+const EC2_IMDS_TOKEN_ENDPOINT = 'http://169.254.169.254/latest/api/token';
+
+const EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT = 'http://169.254.169.254/latest/meta-data/iam/security-credentials/';
+
+
+/**
  * The current moment as a timestamp. This timestamp will be used across
  * functions in order for there to be no variations in signatures.
  * @type {Date}

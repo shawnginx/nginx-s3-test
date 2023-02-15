@@ -44,6 +44,12 @@ const EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT = 'http://169.254.169.254/latest/me
 const DEFAULT_SIGNED_HEADERS = 'host;x-amz-content-sha256;x-amz-date';
 
 /**
+ * Constant defining the default role session name.
+ * @type {string}
+ */
+const DEFAULT_ROLE_SESSION_NAME = 'nginx-aws-signature';
+
+/**
  * The current moment as a timestamp. This timestamp will be used across
  * functions in order for there to be no variations in signatures.
  * @type {Date}
@@ -423,9 +429,9 @@ async function fetchEC2RoleCredentials() {
  * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
  * @private
  */
-async function fetchWebIdentityCredentials(roleSessionName) {
+async function fetchWebIdentityCredentials() {
     const arn = process.env['AWS_ROLE_ARN'];
-    const name = process.env['HOSTNAME'] || roleSessionName;
+    const name = process.env['HOSTNAME'] || DEFAULT_ROLE_SESSION_NAME;
 
     let sts_endpoint = process.env['STS_ENDPOINT'];
     if (!sts_endpoint) {
@@ -531,6 +537,126 @@ function parseBoolean(string) {
     }
 }
 
+/**
+ * Offset to the expiration of credentials, when they should be considered expired and refreshed. The maximum
+ * time here can be 5 minutes, the IMDS and ECS credentials endpoint will make sure that each returned set of credentials
+ * is valid for at least another 5 minutes.
+ *
+ * To make sure we always refresh the credentials instead of retrieving the same again, keep credentials until 4:30 minutes
+ * before they really expire.
+ *
+ * @type {number}
+ */
+const maxValidityOffsetMs = 4.5 * 60 * 1000;
+
+/**
+ * Get the credentials needed to create AWS signatures in order to authenticate
+ * to S3. If the gateway is being provided credentials via a instance profile
+ * credential as provided over the metadata endpoint, this function will:
+ * 1. Try to read the credentials from cache
+ * 2. Determine if the credentials are stale
+ * 3. If the cached credentials are missing or stale, it gets new credentials
+ *    from the metadata endpoint.
+ * 4. If new credentials were pulled, it writes the credentials back to the
+ *    cache.
+ *
+ * If the gateway is not using instance profile credentials, then this function
+ * quickly exits.
+ *
+ * @param r {Request} HTTP request object
+ * @returns {Promise<void>}
+ */
+async function fetchCredentials(r) {
+    /* If we are not using an AWS instance profile to set our credentials we
+       exit quickly and don't write a credentials file. */
+    if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
+        r.return(200);
+        return;
+    }
+
+    let current;
+
+    try {
+        current = readCredentials(r);
+    } catch (e) {
+        debug_log(r, `Could not read credentials: ${e}`);
+        r.return(500);
+        return;
+    }
+
+    if (current) {
+        // AWS returns Unix timestamps in seconds, but in Date constructor we should provide timestamp in milliseconds
+        const exp = new Date(current.expiration * 1000).getTime() - maxValidityOffsetMs;
+        if (NOW.getTime() < exp) {
+            r.return(200);
+            return;
+        }
+    }
+
+    let credentials;
+
+    debug_log(r, 'Cached credentials are expired or not present, requesting new ones');
+
+    if (process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI']) {
+        const uri = ECS_CREDENTIAL_BASE_URI + process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'];
+        try {
+            credentials = await _fetchEcsRoleCredentials(uri);
+        } catch (e) {
+            debug_log(r, 'Could not load ECS task role credentials: ' + JSON.stringify(e));
+            r.return(500);
+            return;
+        }
+    }
+    else if(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']) {
+        try {
+            credentials = await _fetchWebIdentityCredentials()
+        } catch(e) {
+            debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
+            r.return(500);
+            return;
+        }
+    } else {
+        try {
+            credentials = await _fetchEC2RoleCredentials();
+        } catch (e) {
+            debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
+            r.return(500);
+            return;
+        }
+    }
+    try {
+        writeCredentials(r, credentials);
+    } catch (e) {
+        debug_log(r, `Could not write credentials: ${e}`);
+        r.return(500);
+        return;
+    }
+    r.return(200);
+}
+
+/**
+ * Get the credentials needed to generate AWS signatures from the ECS
+ * (Elastic Container Service) metadata endpoint.
+ *
+ * @param credentialsUri {string} endpoint to get credentials from
+ * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
+ * @private
+ */
+async function _fetchEcsRoleCredentials(credentialsUri) {
+    const resp = await ngx.fetch(credentialsUri);
+    if (!resp.ok) {
+        throw 'Credentials endpoint response was not ok.';
+    }
+    const creds = await resp.json();
+
+    return {
+        accessKeyId: creds.AccessKeyId,
+        secretAccessKey: creds.SecretAccessKey,
+        sessionToken: creds.Token,
+        expiration: creds.Expiration,
+    };
+}
+
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
@@ -538,8 +664,7 @@ export default {
     buildStringToSign,
     debug_log,
     eightDigitDate,
-    fetchEC2RoleCredentials,
-    fetchWebIdentityCredentials,
+    fetchCredentials,
     parseBoolean,
     readCredentials,
     securityToken,
@@ -551,6 +676,8 @@ export default {
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
     _credentialsTempFile,
+    _fetchEC2RoleCredentials,
+    _fetchWebIdentityCredentials,
     _padWithLeadingZeros,
     _readCredentialsFromFile,
     _readCredentialsFromKeyValStore,

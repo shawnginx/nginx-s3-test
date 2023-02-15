@@ -59,13 +59,6 @@ const NOW = new Date();
 const SERVICE = 's3';
 
 /**
- * Constant base URI to fetch credentials together with the credentials relative URI, see
- * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html for more details.
- * @type {string}
- */
-const ECS_CREDENTIAL_BASE_URI = 'http://169.254.170.2';
-
-/**
  * Transform the headers returned from S3 such that there isn't information
  * leakage about S3 and do other tasks needed for appropriate gateway output.
  * @param r HTTP request
@@ -120,7 +113,6 @@ function _isHeaderToBeStripped(headerName, additionalHeadersToStrip) {
 
     return false;
 }
-
 
 /**
  * Creates an AWS authentication signature based on the global settings and

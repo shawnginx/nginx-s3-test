@@ -16,6 +16,7 @@
  */
 
 const mod_hmac = require('crypto');
+const fs = require('fs');
 
 /**
  * Constant checksum for an empty HTTP body.
@@ -209,14 +210,122 @@ function signedDate(r) {
     return NOW.toUTCString();
 }
 
+/**
+ * Get the current session token from the instance profile credential cache.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @returns {string} current session token or empty string
+ */
+function securityToken(r) {
+    const credentials = readCredentials(r);
+    if (credentials.sessionToken) {
+        return credentials.sessionToken;
+    }
+    return '';
+}
+
+/**
+ * Get the instance profile credentials needed to authenticated against S3 from
+ * a backend cache. If the credentials cannot be found, then return undefined.
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @returns {undefined|{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string|null), expiration: (string|null)}} AWS instance profile credentials or undefined
+ */
+function readCredentials(r) {
+    if (process.env['S3_ACCESS_KEY_ID'] && process.env['S3_SECRET_KEY']) {
+        return {
+            accessKeyId: process.env['S3_ACCESS_KEY_ID'],
+            secretAccessKey: process.env['S3_SECRET_KEY'],
+            sessionToken: null,
+            expiration: null
+        };
+    }
+
+    if ("variables" in r && r.variables.cache_instance_credentials_enabled == 1) {
+        return _readCredentialsFromKeyValStore(r);
+    } else {
+        return _readCredentialsFromFile();
+    }
+}
+
+/**
+ * Read credentials from the NGINX Keyval store. If it is not found, then
+ * return undefined.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @returns {undefined|{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}} AWS instance profile credentials or undefined
+ * @private
+ */
+function _readCredentialsFromKeyValStore(r) {
+    const cached = r.variables.instance_credential_json;
+
+    if (!cached) {
+        return undefined;
+    }
+
+    try {
+        return JSON.parse(cached);
+    } catch (e) {
+        _debug_log(r, `Error parsing JSON value from r.variables.instance_credential_json: ${e}`);
+        return undefined;
+    }
+}
+
+/**
+ * Returns the path to the credentials temporary cache file.
+ *
+ * @returns {string} path on the file system to credentials cache file
+ * @private
+ */
+function _credentialsTempFile() {
+    if (process.env['S3_CREDENTIALS_TEMP_FILE']) {
+        return process.env['S3_CREDENTIALS_TEMP_FILE'];
+    }
+    if (process.env['TMPDIR']) {
+        return `${process.env['TMPDIR']}/credentials.json`
+    }
+
+    return '/tmp/credentials.json';
+}
+
+/**
+ * Read the contents of the credentials file into memory. If it is not
+ * found, then return undefined.
+ *
+ * @returns {undefined|{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}} AWS instance profile credentials or undefined
+ * @private
+ */
+function _readCredentialsFromFile() {
+    const credsFilePath = _credentialsTempFile();
+
+    try {
+        const creds = fs.readFileSync(credsFilePath);
+        return JSON.parse(creds);
+    } catch (e) {
+        /* Do not throw an exception in the case of when the
+           credentials file path is invalid in order to signal to
+           the caller that such a file has not been created yet. */
+        if (e.code === 'ENOENT') {
+            return undefined;
+        }
+        throw e;
+    }
+}
+
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
     buildSigningKeyHash,
     eightDigitDate,
+    readCredentials,
+    securityToken,
     signedHeaders,
     signedDate,
     signedDateTime,
     splitCachedValues,
-    _padWithLeadingZeros
+    // These functions do not need to be exposed, but they are exposed so that
+    // unit tests can run against them.
+    _credentialsTempFile,
+    _padWithLeadingZeros,
+    _readCredentialsFromFile,
+    _readCredentialsFromKeyValStore
 }

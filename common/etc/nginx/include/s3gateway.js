@@ -174,7 +174,7 @@ function s3BaseUri(r) {
     let basePath;
 
     if (S3_STYLE === 'path') {
-        _debug_log(r, 'Using path style uri : ' + '/' + bucket);
+        aws.debug_log(r, 'Using path style uri : ' + '/' + bucket);
         basePath = '/' + bucket;
     } else {
         basePath = '';
@@ -210,7 +210,7 @@ function s3uri(r) {
         path = _escapeURIPath(basePath + uriPath);
     }
 
-    _debug_log(r, 'S3 Request URI: ' + r.method + ' ' + path);
+    aws.debug_log(r, 'S3 Request URI: ' + r.method + ' ' + path);
     return path;
 }
 
@@ -256,7 +256,7 @@ function _s3DirQueryParams(uriPath, method) {
 function redirectToS3(r) {
     // This is a read-only S3 gateway, so we do not support any other methods
     if (!(r.method === 'GET' || r.method === 'HEAD')) {
-        _debug_log(r, 'Invalid method requested: ' + r.method);
+        aws.debug_log(r, 'Invalid method requested: ' + r.method);
         r.internalRedirect("@error405");
         return;
     }
@@ -311,7 +311,7 @@ function signatureV2(r, bucket, credentials) {
     const httpDate = aws_common.signedDate(r);
     const stringToSign = method + '\n\n\n' + httpDate + '\n' + '/' + bucket + uri;
 
-    _debug_log(r, 'AWS v2 Auth Signing String: [' + stringToSign + ']');
+    aws.debug_log(r, 'AWS v2 Auth Signing String: [' + stringToSign + ']');
 
     const s3signature = hmac.update(stringToSign).digest('base64');
 
@@ -374,7 +374,7 @@ function signatureV4(r, timestamp, bucket, region, server, credentials) {
         .concat(credentials.accessKeyId, '/', eightDigitDate, '/', region, '/', SERVICE, '/aws4_request,',
             'SignedHeaders=', aws.signedHeaders(credentials.sessionToken), ',Signature=', signature);
 
-    _debug_log(r, 'AWS v4 Auth header: [' + authHeader + ']');
+    aws.debug_log(r, 'AWS v4 Auth header: [' + authHeader + ']');
 
     return authHeader;
 }
@@ -412,17 +412,17 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
 
     const canonicalRequest = aws.buildCanonicalRequest(method, uri, queryParams, host, amzDatetime, creds.sessionToken);
 
-    _debug_log(r, 'AWS v4 Auth Canonical Request: [' + canonicalRequest + ']');
+    aws.debug_log(r, 'AWS v4 Auth Canonical Request: [' + canonicalRequest + ']');
 
     const canonicalRequestHash = mod_hmac.createHash('sha256')
         .update(canonicalRequest)
         .digest('hex');
 
-    _debug_log(r, 'AWS v4 Auth Canonical Request Hash: [' + canonicalRequestHash + ']');
+    aws.debug_log(r, 'AWS v4 Auth Canonical Request Hash: [' + canonicalRequestHash + ']');
 
     const stringToSign = _buildStringToSign(amzDatetime, eightDigitDate, region, canonicalRequestHash);
 
-    _debug_log(r, 'AWS v4 Auth Signing String: [' + stringToSign + ']');
+    aws.debug_log(r, 'AWS v4 Auth Signing String: [' + stringToSign + ']');
 
     let kSigningHash;
 
@@ -441,7 +441,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
 
         // If true, use cached value
         if (cacheIsValid) {
-            _debug_log(r, 'AWS v4 Using cached Signing Key Hash');
+            aws.debug_log(r, 'AWS v4 Using cached Signing Key Hash');
             /* We are forced to JSON encode the string returned from the HMAC
              * operation because it is in a very specific format that include
              * binary data and in order to preserve that data when persisting
@@ -451,7 +451,7 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
         // Otherwise, generate a new signing key hash and store it in the cache
         } else {
             kSigningHash = aws.buildSigningKeyHash(creds.secretAccessKey, eightDigitDate, SERVICE, region);
-            _debug_log(r, 'Writing key: ' + eightDigitDate + ':' + kSigningHash.toString('hex'));
+            aws.debug_log(r, 'Writing key: ' + eightDigitDate + ':' + kSigningHash.toString('hex'));
             r.variables.signing_key_hash = eightDigitDate + ':' + JSON.stringify(kSigningHash);
         }
     // Otherwise, don't use caching at all (like when we are using NGINX OSS)
@@ -459,12 +459,12 @@ function _buildSignatureV4(r, amzDatetime, eightDigitDate, creds, bucket, region
         kSigningHash = aws.buildSigningKeyHash(creds.secretAccessKey, eightDigitDate, SERVICE, region);
     }
 
-    _debug_log(r, 'AWS v4 Signing Key Hash: [' + kSigningHash.toString('hex') + ']');
+    aws.debug_log(r, 'AWS v4 Signing Key Hash: [' + kSigningHash.toString('hex') + ']');
 
     const signature = mod_hmac.createHmac('sha256', kSigningHash)
         .update(stringToSign).digest('hex');
 
-    _debug_log(r, 'AWS v4 Authorization Header: [' + signature + ']');
+    aws.debug_log(r, 'AWS v4 Authorization Header: [' + signature + ']');
 
     return signature;
 }
@@ -586,19 +586,6 @@ function _parseArray(string) {
 }
 
 /**
- * Outputs a log message to the request logger if debug messages are enabled.
- *
- * @param r {Request} HTTP request object
- * @param msg {string} message to log
- * @private
- */
-function _debug_log(r, msg) {
-    if (DEBUG && "log" in r) {
-        r.log(msg);
-    }
-}
-
-/**
  * Checks to see if the given environment variable is present. If not, an error
  * is thrown.
  * @param envVarName {string} environment variable to check for
@@ -612,230 +599,7 @@ function _require_env_var(envVarName) {
     }
 }
 
-/**
- * Offset to the expiration of credentials, when they should be considered expired and refreshed. The maximum
- * time here can be 5 minutes, the IMDS and ECS credentials endpoint will make sure that each returned set of credentials
- * is valid for at least another 5 minutes.
- *
- * To make sure we always refresh the credentials instead of retrieving the same again, keep credentials until 4:30 minutes
- * before they really expire.
- *
- * @type {number}
- */
-const maxValidityOffsetMs = 4.5 * 60 * 1000;
-
-/**
- * Get the credentials needed to create AWS signatures in order to authenticate
- * to S3. If the gateway is being provided credentials via a instance profile
- * credential as provided over the metadata endpoint, this function will:
- * 1. Try to read the credentials from cache
- * 2. Determine if the credentials are stale
- * 3. If the cached credentials are missing or stale, it gets new credentials
- *    from the metadata endpoint.
- * 4. If new credentials were pulled, it writes the credentials back to the
- *    cache.
- *
- * If the gateway is not using instance profile credentials, then this function
- * quickly exits.
- *
- * @param r {Request} HTTP request object
- * @returns {Promise<void>}
- */
-async function fetchCredentials(r) {
-    /* If we are not using an AWS instance profile to set our credentials we
-       exit quickly and don't write a credentials file. */
-    if (process.env['S3_ACCESS_KEY_ID'] && process.env['S3_SECRET_KEY']) {
-        r.return(200);
-        return;
-    }
-
-    let current;
-
-    try {
-        current = aws.readCredentials(r);
-    } catch (e) {
-        _debug_log(r, `Could not read credentials: ${e}`);
-        r.return(500);
-        return;
-    }
-
-    if (current) {
-        // AWS returns Unix timestamps in seconds, but in Date constructor we should provide timestamp in milliseconds
-        const exp = new Date(current.expiration * 1000).getTime() - maxValidityOffsetMs;
-        if (NOW.getTime() < exp) {
-            r.return(200);
-            return;
-        }
-    }
-
-    let credentials;
-
-    _debug_log(r, 'Cached credentials are expired or not present, requesting new ones');
-
-    if (process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI']) {
-        const uri = ECS_CREDENTIAL_BASE_URI + process.env['AWS_CONTAINER_CREDENTIALS_RELATIVE_URI'];
-        try {
-            credentials = await _fetchEcsRoleCredentials(uri);
-        } catch (e) {
-            _debug_log(r, 'Could not load ECS task role credentials: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    }
-    else if(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']) {
-        try {
-            credentials = await _fetchWebIdentityCredentials(r)
-        } catch(e) {
-            _debug_log(r, 'Could not assume role using web identity: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    } else {
-        try {
-            credentials = await _fetchEC2RoleCredentials();
-        } catch (e) {
-            _debug_log(r, 'Could not load EC2 task role credentials: ' + JSON.stringify(e));
-            r.return(500);
-            return;
-        }
-    }
-    try {
-        aws.writeCredentials(r, credentials);
-    } catch (e) {
-        _debug_log(r, `Could not write credentials: ${e}`);
-        r.return(500);
-        return;
-    }
-    r.return(200);
-}
-
-/**
- * Get the credentials needed to generate AWS signatures from the ECS
- * (Elastic Container Service) metadata endpoint.
- *
- * @param credentialsUri {string} endpoint to get credentials from
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchEcsRoleCredentials(credentialsUri) {
-    const resp = await ngx.fetch(credentialsUri);
-    if (!resp.ok) {
-        throw 'Credentials endpoint response was not ok.';
-    }
-    const creds = await resp.json();
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.Token,
-        expiration: creds.Expiration,
-    };
-}
-
-/**
- * Get the credentials needed to generate AWS signatures from the EC2
- * metadata endpoint.
- *
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchEC2RoleCredentials() {
-    const tokenResp = await ngx.fetch(EC2_IMDS_TOKEN_ENDPOINT, {
-        headers: {
-            'x-aws-ec2-metadata-token-ttl-seconds': '21600',
-        },
-        method: 'PUT',
-    });
-    const token = await tokenResp.text();
-    let resp = await ngx.fetch(EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT, {
-        headers: {
-            'x-aws-ec2-metadata-token': token,
-        },
-    });
-    /* This _might_ get multiple possible roles in other scenarios, however,
-       EC2 supports attaching one role only.It should therefore be safe to take
-       the whole output, even given IMDS _might_ (?) be able to return multiple
-       roles. */
-    const credName = await resp.text();
-    if (credName === "") {
-        throw 'No credentials available for EC2 instance';
-    }
-    resp = await ngx.fetch(EC2_IMDS_SECURITY_CREDENTIALS_ENDPOINT + credName, {
-        headers: {
-            'x-aws-ec2-metadata-token': token,
-        },
-    });
-    const creds = await resp.json();
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.Token,
-        expiration: creds.Expiration,
-    };
-}
-
-/**
- * Get the credentials by assuming calling AssumeRoleWithWebIdentity with the environment variable
- * values ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and HOSTNAME
- *
- * @returns {Promise<{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}>}
- * @private
- */
-async function _fetchWebIdentityCredentials(r) {
-    const arn = process.env['AWS_ROLE_ARN'];
-    const name = process.env['HOSTNAME'] || 'nginx-s3-gateway';
-
-    let sts_endpoint = process.env['STS_ENDPOINT'];
-    if (!sts_endpoint) {
-        /* On EKS, the ServiceAccount can be annotated with
-           'eks.amazonaws.com/sts-regional-endpoints' to control
-           the usage of regional endpoints. We are using the same standard
-           environment variable here as the AWS SDK. This is with the exception
-           of replacing the value `legacy` with `global` to match what EKS sets
-           the variable to.
-           See: https://docs.aws.amazon.com/sdkref/latest/guide/feature-sts-regionalized-endpoints.html
-           See: https://docs.aws.amazon.com/eks/latest/userguide/configure-sts-endpoint.html */
-        const sts_regional = process.env['AWS_STS_REGIONAL_ENDPOINTS'] || 'global';
-        if (sts_regional === 'regional') {
-            /* STS regional endpoints can be derived from the region's name.
-               See: https://docs.aws.amazon.com/general/latest/gr/sts.html */
-            const region = process.env['AWS_REGION'];
-            if (region) {
-                sts_endpoint = `https://sts.${region}.amazonaws.com`;
-            } else {
-                throw 'Missing required AWS_REGION env variable';
-            }
-        } else {
-            // This is the default global endpoint
-            sts_endpoint = 'https://sts.amazonaws.com';
-        }
-    }
-
-    const token = fs.readFileSync(process.env['AWS_WEB_IDENTITY_TOKEN_FILE']);
-
-    const params = `Version=2011-06-15&Action=AssumeRoleWithWebIdentity&RoleArn=${arn}&RoleSessionName=${name}&WebIdentityToken=${token}`;
-
-    const response = await ngx.fetch(sts_endpoint + "?" + params, {
-        headers: {
-            "Accept": "application/json"
-        },
-        method: 'GET',
-    });
-
-    const resp = await response.json();
-    const creds = resp.AssumeRoleWithWebIdentityResponse.AssumeRoleWithWebIdentityResult.Credentials;
-
-    return {
-        accessKeyId: creds.AccessKeyId,
-        secretAccessKey: creds.SecretAccessKey,
-        sessionToken: creds.SessionToken,
-        expiration: creds.Expiration,
-    };
-}
-
 export default {
-    fetchCredentials,
     s3auth,
     s3uri,
     trailslashControl,

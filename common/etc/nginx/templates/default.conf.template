@@ -24,6 +24,8 @@ js_set $s3auth s3gateway.s3auth;
 js_set $s3SecurityToken s3gateway.s3SecurityToken;
 js_set $s3uri s3gateway.s3uri;
 
+js_set $securityToken aws_common.securityToken;
+
 server {
     include /etc/nginx/conf.d/gateway/server_variables.conf;
 
@@ -112,7 +114,7 @@ server {
 
         # Set the Authorization header to the AWS Signatures credentials
         proxy_set_header Authorization $s3auth;
-        proxy_set_header X-Amz-Security-Token $s3SecurityToken;
+        proxy_set_header X-Amz-Security-Token $securityToken;
 
         # We set the host as the bucket name to inform the S3 API of the bucket
         proxy_set_header Host $s3_host_hdr;
@@ -159,7 +161,7 @@ server {
 
         # Set the Authorization header to the AWS Signatures credentials
         proxy_set_header Authorization $s3auth;
-        proxy_set_header X-Amz-Security-Token $s3SecurityToken;
+        proxy_set_header X-Amz-Security-Token $securityToken;
 
         # We set the host as the bucket name to inform the S3 API of the bucket
         proxy_set_header Host $s3_host_hdr;

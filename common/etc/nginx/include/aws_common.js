@@ -225,16 +225,17 @@ function securityToken(r) {
 }
 
 /**
- * Get the instance profile credentials needed to authenticated against S3 from
- * a backend cache. If the credentials cannot be found, then return undefined.
+ * Get the instance profile credentials needed to be authenticated against AWS
+ * services like S3 and Lambda from a backend cache. If the credentials cannot
+ * be found, then return undefined.
  * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
  * @returns {undefined|{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string|null), expiration: (string|null)}} AWS instance profile credentials or undefined
  */
 function readCredentials(r) {
-    if (process.env['S3_ACCESS_KEY_ID'] && process.env['S3_SECRET_KEY']) {
+    if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
         return {
-            accessKeyId: process.env['S3_ACCESS_KEY_ID'],
-            secretAccessKey: process.env['S3_SECRET_KEY'],
+            accessKeyId: process.env['AWS_ACCESS_KEY_ID'],
+            secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY'],
             sessionToken: null,
             expiration: null
         };
@@ -277,8 +278,8 @@ function _readCredentialsFromKeyValStore(r) {
  * @private
  */
 function _credentialsTempFile() {
-    if (process.env['S3_CREDENTIALS_TEMP_FILE']) {
-        return process.env['S3_CREDENTIALS_TEMP_FILE'];
+    if (process.env['AWS_CREDENTIALS_TEMP_FILE']) {
+        return process.env['AWS_CREDENTIALS_TEMP_FILE'];
     }
     if (process.env['TMPDIR']) {
         return `${process.env['TMPDIR']}/credentials.json`
@@ -311,6 +312,54 @@ function _readCredentialsFromFile() {
     }
 }
 
+/**
+ * Write the instance profile credentials to a caching backend.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @param credentials {{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}} AWS instance profile credentials
+ */
+function writeCredentials(r, credentials) {
+    /* Do not bother writing credentials if we are running in a mode where we
+       do not need instance credentials. */
+    if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
+        return;
+    }
+
+    if (!credentials) {
+        throw `Cannot write invalid credentials: ${JSON.stringify(credentials)}`;
+    }
+
+    if ("variables" in r && r.variables.cache_instance_credentials_enabled == 1) {
+        _writeCredentialsToKeyValStore(r, credentials);
+    } else {
+        _writeCredentialsToFile(credentials);
+    }
+}
+
+/**
+ * Write the instance profile credentials to the NGINX Keyval store.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @param credentials {{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}} AWS instance profile credentials
+ * @private
+ */
+function _writeCredentialsToKeyValStore(r, credentials) {
+    r.variables.instance_credential_json = JSON.stringify(credentials);
+}
+
+/**
+ * Write the instance profile credentials to a file on the file system. This
+ * file will be quite small and should end up in the file cache relatively
+ * quickly if it is repeatedly read.
+ *
+ * @param r {Request} HTTP request object (not used, but required for NGINX configuration)
+ * @param credentials {{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string), expiration: (string)}} AWS instance profile credentials
+ * @private
+ */
+function _writeCredentialsToFile(credentials) {
+    fs.writeFileSync(_credentialsTempFile(), JSON.stringify(credentials));
+}
+
 export default {
     awsHeaderDate,
     buildCanonicalRequest,
@@ -322,10 +371,13 @@ export default {
     signedDate,
     signedDateTime,
     splitCachedValues,
+    writeCredentials,
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
     _credentialsTempFile,
     _padWithLeadingZeros,
     _readCredentialsFromFile,
-    _readCredentialsFromKeyValStore
+    _readCredentialsFromKeyValStore,
+    _writeCredentialsToFile,
+    _writeCredentialsToKeyValStore
 }

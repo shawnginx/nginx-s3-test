@@ -31,11 +31,10 @@ const mod_hmac = require('crypto');
  * about signature generation will be logged.
  * @type {boolean}
  */
-const DEBUG = _parseBoolean(process.env['S3_DEBUG']);
-const ALLOW_LISTING = _parseBoolean(process.env['ALLOW_DIRECTORY_LIST']);
-const PROVIDE_INDEX_PAGE = _parseBoolean(process.env['PROVIDE_INDEX_PAGE']);
-const APPEND_SLASH = _parseBoolean(process.env['APPEND_SLASH_FOR_POSSIBLE_DIRECTORY']);
-const FOUR_O_FOUR_ON_EMPTY_BUCKET = _parseBoolean(process.env['FOUR_O_FOUR_ON_EMPTY_BUCKET']);
+const ALLOW_LISTING = aws.parseBoolean(process.env['ALLOW_DIRECTORY_LIST']);
+const PROVIDE_INDEX_PAGE = aws.parseBoolean(process.env['PROVIDE_INDEX_PAGE']);
+const APPEND_SLASH = aws.parseBoolean(process.env['APPEND_SLASH_FOR_POSSIBLE_DIRECTORY']);
+const FOUR_O_FOUR_ON_EMPTY_BUCKET = aws.parseBoolean(process.env['FOUR_O_FOUR_ON_EMPTY_BUCKET']);
 const S3_STYLE = process.env['S3_STYLE'];
 
 const ADDITIONAL_HEADER_PREFIXES_TO_STRIP = _parseArray(process.env['HEADER_PREFIXES_TO_STRIP']);
@@ -325,7 +324,7 @@ function signatureV2(r, bucket, credentials) {
  */
 function filterListResponse(r, data, flags) {
     if (FOUR_O_FOUR_ON_EMPTY_BUCKET) {
-        let indexIsEmpty = _parseBoolean(r.variables.indexIsEmpty);
+        let indexIsEmpty = aws.parseBoolean(r.variables.indexIsEmpty);
 
         if (indexIsEmpty && data.indexOf('<Contents') >= 0) {
             r.variables.indexIsEmpty = false;
@@ -515,29 +514,6 @@ function _isDirectory(path) {
     }
 
     return path.charAt(len - 1) === '/';
-}
-
-/**
- * Parses a string to and returns a boolean value based on its value. If the
- * string can't be parsed, this method returns false.
- *
- * @param string {*} value representing a boolean
- * @returns {boolean} boolean value of string
- * @private
- */
-function _parseBoolean(string) {
-    switch(string) {
-        case "TRUE":
-        case "true":
-        case "True":
-        case "YES":
-        case "yes":
-        case "Yes":
-        case "1":
-            return true;
-        default:
-            return false;
-    }
 }
 
 /**

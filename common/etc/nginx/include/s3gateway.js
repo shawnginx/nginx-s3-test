@@ -139,7 +139,7 @@ function s3auth(r) {
         signature = signatureV2(r, bucket, credentials);
     } else {
         let req = _buildCanonicalReqParamsForSigV4(r, bucket, server);
-        signature = aws.signatureV4(r, NOW, region,
+        signature = aws.signatureV4(r, NOW, region, SERVICE,
             req.method, req.uri, req.queryParams, req.host, credentials);
     }
 

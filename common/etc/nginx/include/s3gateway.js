@@ -345,7 +345,7 @@ function filterListResponse(r, data, flags) {
  * @see {@link https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html | AWS V4 Signing Process}
  * @param r {Request} HTTP request object
  * @param bucket {string} S3 bucket associated with request
- * @param host {string} S3 host associated with request
+ * @param server {string} S3 host associated with request
  * @returns canonicalReqParams {object} CanonicalReqParams object (host, method, uri, queryParams)
  * @private
  */

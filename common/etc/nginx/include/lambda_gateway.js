@@ -17,6 +17,19 @@
 import aws from "./aws_common.js"
 
 /**
+ * The current moment as a timestamp. This timestamp will be used across
+ * functions in order for there to be no variations in signatures.
+ * @type {Date}
+ */
+const NOW = new Date();
+
+/**
+ * Constant defining the service requests are being signed for.
+ * @type {string}
+ */
+const SERVICE = 'lambda';
+
+/**
  * Creates an AWS authentication signature based on the global settings and
  * the passed request parameter.
  *
@@ -29,6 +42,7 @@ function lambdaAuth(r) {
     const queryParams = '';
     const uri = '/2015-03-31/' + r.request_uri + '/invocations';
     r.log("##### Lambda Auth: URI: " + uri);
+    const credentials = aws.readCredentials(r);
     let signature = aws.signatureV4(r, NOW, region, SERVICE,
         r.method, uri, queryParams, host, credentials);
     return signature;

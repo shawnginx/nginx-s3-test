@@ -138,7 +138,7 @@ function s3auth(r) {
     if (sigver == '2') {
         signature = signatureV2(r, bucket, credentials);
     } else {
-        let req = _buildCanonicalReqParamsForSigV4(r, bucket, server);
+        let req = _s3canonicalReqParams(r, bucket, server);
         signature = aws.signatureV4(r, NOW, region, SERVICE,
             req.method, req.uri, req.queryParams, req.host, credentials);
     }
@@ -349,7 +349,7 @@ function filterListResponse(r, data, flags) {
  * @returns canonicalReqParams {object} CanonicalReqParams object (host, method, uri, queryParams)
  * @private
  */
-function _buildCanonicalReqParamsForSigV4(r, bucket, server) {
+function _s3canonicalReqParams(r, bucket, server) {
     let host = server;
     if (S3_STYLE === 'virtual' || S3_STYLE === 'default' || S3_STYLE === undefined) {
         host = bucket + '.' + host;
@@ -471,7 +471,7 @@ export default {
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
     _encodeURIComponent,
-    _buildCanonicalReqParamsForSigV4,
+    _s3canonicalReqParams,
     _escapeURIPath,
     _parseArray,
     _isHeaderToBeStripped

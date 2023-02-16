@@ -24,6 +24,7 @@ js_var $indexIsEmpty true;
 js_set $s3auth s3gateway.s3auth;
 js_set $s3uri s3gateway.s3uri;
 
+js_set $lambdaAuth lambda_gateway.lambdaAuth;
 js_set $awsSecurityToken aws_common.securityToken;
 
 server {

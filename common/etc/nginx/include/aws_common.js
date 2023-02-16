@@ -169,7 +169,7 @@ function buildSigningKeyHash(kSecret, eightDigitDate, service, region) {
  * @returns {string} ISO 8601 timestamp
  */
 function awsHeaderDate(r) {
-    return signedDateTime(NOW, eightDigitDate(NOW));
+    return signedDateTime(NOW, _eightDigitDate(NOW));
 }
 
 /**
@@ -179,7 +179,7 @@ function awsHeaderDate(r) {
  * @returns {string} a formatted date string based on the input timestamp
  * @private
  */
-function eightDigitDate(timestamp) {
+function _eightDigitDate(timestamp) {
     const year = timestamp.getUTCFullYear();
     const month = timestamp.getUTCMonth() + 1;
     const day = timestamp.getUTCDate();
@@ -680,7 +680,7 @@ async function _fetchEcsRoleCredentials(credentialsUri) {
  */
 function signatureV4(
     r, timestamp, region, method, uri, queryParams, host, credentials) {
-    const eightDigitDate = eightDigitDate(timestamp);
+    const eightDigitDate = _eightDigitDate(timestamp);
     const amzDatetime = signedDateTime(timestamp, eightDigitDate);
     const canonicalRequest = buildCanonicalRequest(
         method, uri, queryParams, host, amzDatetime, credentials.sessionToken);
@@ -774,7 +774,6 @@ export default {
     buildSigningKeyHash,
     buildStringToSign,
     debug_log,
-    eightDigitDate,
     fetchCredentials,
     parseBoolean,
     readCredentials,
@@ -788,6 +787,7 @@ export default {
     // These functions do not need to be exposed, but they are exposed so that
     // unit tests can run against them.
     _credentialsTempFile,
+    _eightDigitDate,
     _fetchEC2RoleCredentials,
     _fetchWebIdentityCredentials,
     _padWithLeadingZeros,

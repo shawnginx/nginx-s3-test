@@ -1,19 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   NewBucketName:
-    Default: <ENTER_RANDOM_BUCKET_NAME_HERE>
+    Default: nginx-0206
     Description: S3 Bucket Name
     Type: String
   Subnet1:
-    Default: <ENTER_YOUR_VALUE_HERE>
+    Default: subnet-0c505cdc0f7ca35db
     Description: ID of the first subnet to be used for resources
     Type: String
   Subnet2:
-    Default: <ENTER_YOUR_VALUE_HERE>
+    Default: subnet-051c20e13acd512e4
     Description: ID of the second subnet to be used for resources
     Type: String
   VpcId:
-    Default: <ENTER_YOUR_VALUE_HERE>
+    Default: vpc-08529994e7408478b
     Description: ID of the VPC to be used for resources
     Type: String
   ContainerName:
@@ -240,7 +240,7 @@ Resources:
             - Name: S3_STYLE
               Value: default
             - Name: AWS_DEBUG
-              Value: 'false'
+              Value: 'true'
           Image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:latest-njs-oss
           LogConfiguration:
             LogDriver: awslogs

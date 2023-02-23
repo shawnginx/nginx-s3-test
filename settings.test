@@ -1,3 +1,5 @@
+AWS_ACCESS_KEY_ID=xxxxx
+AWS_SECRET_ACCESS_KEY=xxxxx
 S3_BUCKET_NAME=nginx-0206
 S3_SERVER=s3-us-east-2.amazonaws.com
 S3_SERVER_PORT=443

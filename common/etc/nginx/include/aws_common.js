@@ -258,11 +258,12 @@ function securityToken(r) {
  * @returns {undefined|{accessKeyId: (string), secretAccessKey: (string), sessionToken: (string|null), expiration: (string|null)}} AWS instance profile credentials or undefined
  */
 function readCredentials(r) {
+    const token = process.env['AWS_SESSION_TOKEN'];
     if (process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
         return {
             accessKeyId: process.env['AWS_ACCESS_KEY_ID'],
             secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY'],
-            sessionToken: null,
+            sessionToken: token,
             expiration: null
         };
     }
